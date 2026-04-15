@@ -1,7 +1,6 @@
 """Sensor platform for PowerPal BLE."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -38,24 +37,15 @@ async def async_setup_entry(
     pairing_code = entry.data[CONF_PAIRING_CODE]
     pulses_per_kwh = entry.data.get(CONF_PULSES_PER_KWH, 1000)
 
-    # Create BLE client
-    ble_client = PowerPalBLEClient(
-        hass, address, pairing_code, pulses_per_kwh
-    )
-
-    # Connect to device
+    ble_client = PowerPalBLEClient(hass, address, pairing_code, pulses_per_kwh)
     connected = await ble_client.connect()
+    
     if not connected:
         _LOGGER.error("Failed to connect to PowerPal device")
         return
 
     hass.data[DOMAIN][entry.entry_id]["ble_client"] = ble_client
-
-    # Create sensor entities
-    entities = [
-        PowerPalPowerSensor(ble_client, name, address),
-    ]
-
+    entities = [PowerPalPowerSensor(ble_client, name, address)]
     async_add_entities(entities)
 
 

@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "PowerPal BLE Device",
+        "description": "Set up your PowerPal BLE energy monitor",
+        "data": {
+          "address": "Device MAC Address (e.g., DF:5C:55:00:00:00)",
+          "name": "Device Name",
+          "pairing_code": "Pairing Code (6 digits)",
+          "pulses_per_kwh": "Pulses per kWh (usually 1000)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to device"
+    },
+    "abort": {
+      "already_configured": "Device already configured"
+    }
+  }
+}

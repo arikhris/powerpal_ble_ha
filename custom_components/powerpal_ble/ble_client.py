@@ -1,7 +1,6 @@
 """BLE Client for PowerPal devices using Home Assistant's Bluetooth integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, Callable
 
@@ -15,10 +14,10 @@ _LOGGER = logging.getLogger(__name__)
 class PowerPalBLEClient:
     """Manages BLE connections to PowerPal devices."""
 
-    # Service and Characteristic UUIDs
     SERVICE_POWERPAL_UUID = "59DAABCD-12F4-25A6-7D4F-55961DCE4205"
     CHAR_MEASUREMENT_UUID = "59DA0001-12F4-25A6-7D4F-55961DCE4205"
     CHAR_PAIRINGCODE_UUID = "59DA0011-12F4-25A6-7D4F-55961DCE4205"
+    CHAR_READINGBATCHSIZE_UUID = "59DA0013-12F4-25A6-7D4F-55961DCE4205"
 
     def __init__(
         self,
@@ -36,7 +35,6 @@ class PowerPalBLEClient:
         self._is_connected = False
         self._is_paired = False
         self._callbacks: list[Callable] = []
-        self._notify_task: asyncio.Task | None = None
 
     async def connect(self) -> bool:
         """Connect to the PowerPal device."""
@@ -51,7 +49,7 @@ class PowerPalBLEClient:
             self._is_connected = True
             _LOGGER.info("Connected to PowerPal at %s", self.address)
 
-            # Pair with device
+            # Authenticate with pairing code
             if not await self._pair():
                 await self.disconnect()
                 return False
@@ -68,14 +66,6 @@ class PowerPalBLEClient:
 
     async def disconnect(self) -> None:
         """Disconnect from the PowerPal device."""
-        if self._notify_task:
-            self._notify_task.cancel()
-            try:
-                await self._notify_task
-            except asyncio.CancelledError:
-                pass
-            self._notify_task = None
-
         if self.client:
             try:
                 await self.client.disconnect()
@@ -88,16 +78,11 @@ class PowerPalBLEClient:
     async def _pair(self) -> bool:
         """Authenticate with the PowerPal device using pairing code."""
         try:
-            # Convert pairing code to bytes (little-endian format)
             pairing_bytes = self._convert_pairing_code(self.pairing_code)
-
-            await self.client.write_gatt_char(
-                self.CHAR_PAIRINGCODE_UUID, pairing_bytes
-            )
+            await self.client.write_gatt_char(self.CHAR_PAIRINGCODE_UUID, pairing_bytes)
             self._is_paired = True
             _LOGGER.debug("Successfully authenticated with PowerPal")
             return True
-
         except BleakError as err:
             _LOGGER.error("Failed to authenticate with PowerPal: %s", err)
             return False
@@ -112,36 +97,26 @@ class PowerPalBLEClient:
         except BleakError as err:
             _LOGGER.error("Failed to start notifications: %s", err)
 
-    def _on_measurement_notification(
-        self, sender: int, data: bytearray
-    ) -> None:
+    def _on_measurement_notification(self, sender: int, data: bytearray) -> None:
         """Handle incoming measurement notification from PowerPal."""
         measurement = self._parse_measurement_data(data)
         if measurement:
             self._notify_callbacks("measurement", measurement)
 
-    def _parse_measurement_data(self, data: bytearray) -> dict[str, float] | None:
+    def _parse_measurement_data(self, data: bytearray) -> dict[str, Any] | None:
         """Parse raw PowerPal measurement data.
         
-        Data format (20 bytes):
+        Data format:
         - Bytes 0-3: Unix timestamp (little-endian uint32)
         - Bytes 4-5: Pulse count (little-endian uint16)
-        - Bytes 6+: Reserved/additional data
         """
         if len(data) < 6:
             _LOGGER.warning("Invalid measurement data length: %d", len(data))
             return None
 
         try:
-            # Parse timestamp (little-endian)
             unix_time = int.from_bytes(data[0:4], byteorder="little")
-
-            # Parse pulse count (little-endian)
             pulse_count = int.from_bytes(data[4:6], byteorder="little")
-
-            # Calculate power consumption in kW
-            # pulse_count represents pulses in the time interval
-            # Power (kW) = pulse_count / pulses_per_kwh
             power_kw = pulse_count / self.pulses_per_kwh
 
             return {
@@ -149,20 +124,13 @@ class PowerPalBLEClient:
                 "pulses": pulse_count,
                 "power_kw": power_kw,
             }
-
         except (ValueError, IndexError) as err:
             _LOGGER.error("Error parsing measurement data: %s", err)
             return None
 
     @staticmethod
     def _convert_pairing_code(pairing_code: int) -> bytes:
-        """Convert pairing code to PowerPal format.
-        
-        The pairing code needs to be converted to a 4-byte little-endian array.
-        For example, pairing code 123123:
-        - In hex: 0x01E0F3
-        - As bytes: [0x00, 0x01, 0xE0, 0xF3]
-        """
+        """Convert pairing code to PowerPal format (4-byte little-endian)."""
         return pairing_code.to_bytes(4, byteorder="little")
 
     def add_callback(self, callback: Callable) -> None:

@@ -1,7 +1,6 @@
 """The PowerPal BLE integration for Home Assistant."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -19,19 +18,14 @@ from homeassistant.helpers.typing import ConfigType
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "powerpal_ble"
-
 PLATFORMS: list[Platform] = [Platform.SENSOR]
-
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-# PowerPal Configuration
 CONF_PAIRING_CODE = "pairing_code"
 CONF_PULSES_PER_KWH = "pulses_per_kwh"
 
-# Service UUIDs
+# PowerPal Service UUIDs
 SERVICE_POWERPAL_UUID = "59DAABCD-12F4-25A6-7D4F-55961DCE4205"
-
-# Characteristic UUIDs
 CHAR_MEASUREMENT_UUID = "59DA0001-12F4-25A6-7D4F-55961DCE4205"
 CHAR_PAIRINGCODE_UUID = "59DA0011-12F4-25A6-7D4F-55961DCE4205"
 
@@ -45,10 +39,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up PowerPal BLE from a config entry."""
     hass.data[DOMAIN][entry.entry_id] = {}
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_update_listener))
-
     return True
 
 
