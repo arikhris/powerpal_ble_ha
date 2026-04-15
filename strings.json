@@ -1,0 +1,11 @@
+{
+  "domain": "powerpal_ble",
+  "name": "PowerPal BLE",
+  "codeowners": ["@arikhris"],
+  "config_flow": true,
+  "documentation": "https://github.com/arikhris/powerpal_ble",
+  "requirements": ["bleak==0.20.2"],
+  "version": "1.0.0",
+  "dependencies": ["bluetooth"],
+  "iot_class": "local_polling"
+}
